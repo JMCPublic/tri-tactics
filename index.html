@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tri Tactics Practice</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: board left and command panel right on laptop; board on top, panel underneath on phone. */
+:root{
+  --bg:#F3EFE4; --panel:#FBF9F3; --line:#D8D2C2; --fg:#1E241D; --muted:#4D5648;
+  --accent:#A8461A; --accent-fg:#FFFFFF; --navy:#263B5E; --mine:#C4561F; --soft:#E6E0D0; --warn-bg:#FBE7D9; --warn-fg:#6E2A0A; --ok-bg:#E3EEDF; --ok-fg:#233A22;
+  --scrim:rgba(20,26,20,.72);
+  --land:#6F8563; --wood:#627856; --sea:#88AFBC; --bank:#1F2B22; --frame:#23382E; --grid:#A3B297;
+  --display:'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --body:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#171B17; --panel:#20261F; --line:#3A4237; --fg:#ECEBE4; --muted:#B4BAAB;
+  --accent:#D0652F; --accent-fg:#16120E; --soft:#2B3229; --warn-bg:#3B2417; --warn-fg:#F3C9AF; --ok-bg:#22331F; --ok-fg:#CFE5C6; --scrim:rgba(0,0,0,.75); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171B17; --panel:#20261F; --line:#3A4237; --fg:#ECEBE4; --muted:#B4BAAB;
+  --accent:#D0652F; --accent-fg:#16120E; --soft:#2B3229; --warn-bg:#3B2417; --warn-fg:#F3C9AF; --ok-bg:#22331F; --ok-fg:#CFE5C6; --scrim:rgba(0,0,0,.75); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:14px 32px}
+button{font-family:inherit;font-size:inherit;color:inherit}
+button:focus-visible,a:focus-visible{outline:3px solid #F2B632;outline-offset:2px}
+.top{max-width:1100px;margin:0 auto 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.brand{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:.08em}
+.sub{color:var(--muted);font-size:14px}
+.pill{font-family:var(--display);font-weight:700;letter-spacing:.06em;font-size:15px;padding:3px 10px;border-radius:4px;background:var(--accent);color:var(--accent-fg)}
+.pill.wait{background:var(--navy);color:#fff}
+.pill.done{background:var(--soft);color:var(--fg)}
+.top .spacer{flex:1}
+.app{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:minmax(0,660px) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr);gap:14px}}
+
+/* Board */
+.boardwrap{display:grid;grid-template-columns:1.4em minmax(0,1fr);grid-template-rows:1.4em auto;gap:4px;max-width:660px;width:100%}
+.files,.ranks{display:grid;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.files{grid-template-columns:repeat(12,minmax(0,1fr));text-align:center;padding:0 3px;align-items:end}
+.ranks{grid-template-rows:repeat(12,minmax(0,1fr));align-items:center;justify-items:end;padding:3px 0}
+.board{container-type:inline-size;width:100%;aspect-ratio:1;max-width:100%;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-rows:repeat(12,minmax(0,1fr));gap:1px;background:var(--grid);border:3px solid var(--frame);border-radius:6px;overflow:hidden}
+.cell{position:relative;display:block;border:0;padding:0;margin:0;background:var(--land);cursor:pointer;min-width:0;min-height:0}
+.cell.wood{background:var(--wood)}
+.cell.sea{background:var(--sea)}
+.cell > span{position:absolute;display:block;pointer-events:none}
+.rb{background:var(--bank)} .rw{background:var(--sea)}
+.rb.h{left:0;right:0;top:26%;height:48%} .rw.h{left:0;right:0;top:35%;height:30%}
+.rb.hl{left:0;right:26%;top:26%;height:48%} .rw.hl{left:0;right:35%;top:35%;height:30%}
+.rb.hr{left:26%;right:0;top:26%;height:48%} .rw.hr{left:35%;right:0;top:35%;height:30%}
+.rb.vu{top:0;bottom:26%;left:26%;width:48%} .rw.vu{top:0;bottom:35%;left:35%;width:30%}
+.rb.vd{top:26%;bottom:0;left:26%;width:48%} .rw.vd{top:35%;bottom:0;left:35%;width:30%}
+.lk1{inset:6%;border-radius:22%;background:var(--bank)} .lk2{inset:17%;border-radius:18%;background:var(--sea)}
+.hq{inset:0;border:.45cqi solid #FFF8EC;display:flex !important;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:3.1cqi;color:#FFF8EC}
+.pc{inset:7%;border-radius:12%;overflow:hidden}
+.pc.face{background:#F2EEE2}
+.pc.mine{border:.45cqi solid var(--mine)}
+.pc.enemy{border:.45cqi solid var(--navy)}
+.pc.back{background:var(--navy);border:.45cqi solid #1A2A44}
+.pc.back::after{content:"";position:absolute;inset:14%;border:1px solid #6E83A6;border-radius:10%}
+.pc .st{position:absolute;left:0;top:0;bottom:0;width:30%}
+.pc .st i{position:absolute;left:0;right:0;bottom:0;height:30%}
+.pc b{position:absolute;left:30%;right:0;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:3.7cqi;color:#141414;line-height:1}
+.pc.ghost{opacity:.35}
+.warnd{right:6%;top:6%;width:1.6cqi;height:1.6cqi;border-radius:50%;background:#E8622C;border:1px solid #fff}
+.dot{left:36%;top:36%;width:28%;height:28%;border-radius:50%;background:#FFF8EC;border:.4cqi solid #141414}
+.ring{inset:0;border:.6cqi solid #F2B632;border-radius:10%}
+.tgt{inset:0;border:.6cqi solid #E8622C;border-radius:10%;animation:pulse 1.2s ease-in-out infinite}
+.lastto{inset:0;border:.45cqi solid #FFF8EC;border-radius:10%}
+.lastfrom{inset:14%;border:.35cqi dashed #FFF8EC;border-radius:12%}
+@keyframes pulse{50%{opacity:.45}}
+@media (prefers-reduced-motion: reduce){.tgt{animation:none}}
+
+/* Panel */
+.side{display:flex;flex-direction:column;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.h2{font-family:var(--display);font-weight:700;font-size:26px;line-height:1.05;margin:0;text-wrap:balance}
+.lbl{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.08em;color:var(--muted)}
+.muted{color:var(--muted);font-size:14px}
+p{margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.btn{min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+.btn.attack{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600;text-align:left;width:100%}
+.btn.ghostbtn{border-color:transparent;background:transparent;color:var(--accent)}
+.sel{display:flex;gap:14px;align-items:center}
+.sel svg{flex:none}
+.lvl{display:flex;flex-direction:column;gap:6px}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{min-height:40px;border:0;background:var(--panel);cursor:pointer;font-weight:500}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);font-weight:600}
+.vs svg{animation:flip .55s cubic-bezier(.2,.7,.2,1) both;transform-origin:50% 50%}
+.vs > div:last-child svg{animation-delay:.25s}
+@keyframes flip{0%{transform:perspective(600px) rotateY(90deg)}100%{transform:perspective(600px) rotateY(0)}}
+@media (prefers-reduced-motion: reduce){.vs svg{animation:none}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--soft);border-radius:10px;padding:10px 12px}
+.stat .v{font-family:var(--display);font-weight:700;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.stat .k{font-size:13px;color:var(--muted)}
+.chart svg{width:100%;height:auto;display:block}
+.points{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px}
+.points li.good::marker{color:#2E9B3A}.points li.bad::marker{color:var(--accent)}
+.leftcol{display:flex;flex-direction:column;gap:14px;min-width:0;max-width:660px;width:100%}
+.tray{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.tray.drop{outline:3px dashed #F2B632;outline-offset:-3px;cursor:pointer}
+.trayhead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;justify-content:space-between}
+.trayhead .lbl{color:var(--fg)}
+.trow{display:flex;flex-wrap:wrap;gap:8px}
+.tgroup{display:flex;flex-direction:column;gap:6px}
+.tgroup .muted{font-size:13px}
+.tk{position:relative;width:46px;height:46px;border:0;padding:0;background:none;cursor:pointer;border-radius:6px;flex:none}
+.tk .pc{position:absolute;display:block;inset:2px;border-radius:5px}
+.tk .pc.mine,.tk .pc.enemy{border-width:3px}
+.tk .pc b{font-size:22px}
+.tk .cnt{position:absolute;right:-5px;top:-7px;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--fg);color:var(--bg);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.tk.on{outline:3px solid #F2B632;outline-offset:1px}
+.tk:disabled{opacity:.28;cursor:default}
+@media (max-width:420px){.tk{width:40px;height:40px}.tk .pc b{font-size:19px}}
+.zone{inset:0;background:rgba(255,248,236,.2)}
+.btn:disabled{opacity:.45;cursor:default}
+.intel{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--soft);padding-top:10px}
+.ir{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:8px;align-items:start;font-size:14px}
+@media (max-width:420px){.ir{grid-template-columns:minmax(0,1fr);gap:4px}}
+.il{font-family:var(--display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:14px;color:var(--muted);padding-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:2px 8px;border-radius:999px;font-size:13px;border:1px solid var(--line)}
+.chip.win{background:var(--ok-bg);color:var(--ok-fg);border-color:transparent}
+.chip.lose{background:var(--warn-bg);color:var(--warn-fg);border-color:transparent}
+.chip.draw{background:var(--soft)}
+.notes{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px}
+.guide{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:14px}
+.guide .card{gap:8px}
+.warn{padding:10px 12px;background:var(--warn-bg);color:var(--warn-fg);border-radius:8px;font-size:14px}
+.ok{padding:10px 12px;background:var(--ok-bg);color:var(--ok-fg);border-radius:8px;font-size:14px}
+.forces{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.force{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;border-top:5px solid var(--mine)}
+.force.cpu{border-top-color:var(--navy)}
+.force .n{font-family:var(--display);font-weight:700;font-size:22px}
+.log{display:flex;flex-direction:column;max-height:260px;overflow:auto}
+.log div{display:grid;grid-template-columns:2.4em minmax(0,1fr);gap:8px;padding:6px 0;border-top:1px solid var(--soft);font-size:14px}
+.log span:first-child{color:var(--muted);font-variant-numeric:tabular-nums}
+.legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px;font-size:13px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:8px}
+.sw{width:20px;height:20px;border-radius:3px;flex:none}
+
+/* Dialogs */
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;z-index:20;
+  padding:max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.dlg{background:var(--panel);color:var(--fg);border-radius:16px;padding:22px 20px;width:100%;max-width:460px;max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.dlg.wide{max-width:980px}
+.vs{display:flex;align-items:center;justify-content:center;gap:10px}
+.vs > div{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;font-size:14px;font-weight:600;min-width:0}
+.vs svg{width:100%;max-width:180px;height:auto}
+.vs .v{font-family:var(--display);font-weight:700;font-size:20px;color:var(--muted);flex:none}
+.result{font-family:var(--display);font-weight:700;font-size:28px;text-align:center;line-height:1.1}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
+table.ct{border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+table.ct th,table.ct td{border:1px solid var(--soft);padding:4px 5px;text-align:center;white-space:nowrap}
+table.ct th{font-family:var(--display);font-weight:700;font-size:13px;background:var(--soft)}
+table.ct td.s{color:var(--accent);font-weight:600}
+.rules{display:flex;flex-direction:column;gap:10px;max-width:68ch}
+.rules h3{font-family:var(--display);font-size:20px;margin:6px 0 0}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="brand">TRI TACTICS</div>
+  <div class="sub">Practice against the computer</div>
+  <span id="status" class="pill">SET UP</span>
+  <span class="spacer"></span>
+  <button class="btn" id="btnSound" type="button" aria-pressed="true">Sound on</button>
+  <button class="btn" id="btnRules" type="button">Rules and combat table</button>
+</header>
+
+<main class="app">
+  <div class="leftcol">
+  <div class="boardwrap">
+    <span></span>
+    <div class="files" id="files"></div>
+    <div class="ranks" id="ranks"></div>
+    <div class="board" id="board" role="group" aria-label="Tri Tactics board"></div>
+  </div>
+  <section class="tray" id="tray" aria-live="polite"></section>
+  </div>
+  <aside class="side">
+    <section class="card" id="action" aria-live="polite"></section>
+    <div class="forces">
+      <div class="force"><div class="muted">South · you</div><div class="n" id="cntMe">56 pieces</div></div>
+      <div class="force cpu"><div class="muted">North · computer</div><div class="n" id="cntCpu">56 pieces</div></div>
+    </div>
+    <section class="card">
+      <div class="lbl">CAMPAIGN LOG</div>
+      <div class="log" id="log"></div>
+    </section>
+    <section class="card">
+      <div class="legend">
+        <span><span class="sw" style="background:#F2EEE2;border:3px solid var(--mine)"></span>Your cards</span>
+        <span><span class="sw" style="background:var(--navy)"></span>Computer, face down</span>
+        <span><span class="sw" style="background:#F2EEE2;border:3px solid var(--navy)"></span>Computer, revealed</span>
+        <span><span class="sw" style="background:#E8622C;border-radius:50%;width:12px;height:12px"></span>Out of its element</span>
+      </div>
+      <div class="lvl"><span class="lbl">COMPUTER STRENGTH</span><div class="seg" id="seg" role="group" aria-label="Computer strength"><button type="button" data-level="easy">Easy</button><button type="button" data-level="normal">Normal</button><button type="button" data-level="hard">Hard</button></div></div>
+      <div class="row"><button class="btn" id="btnReport" type="button">Battle report</button><button class="btn ghostbtn" id="btnNew" type="button">Start a new game</button></div>
+    </section>
+  </aside>
+</main>
+<div id="modal"></div>
+
+<script>
+(function(){
+'use strict';
+// ---------- Rules engine ----------
+const SIZE=12;
+const UNITS=[["I1","Battalion","infantry",1,5],["I2","Brigade","infantry",2,4],["I3","Division","infantry",3,3],["I4","Army Corps","infantry",4,2],["I5","Army","infantry",5,1],["AA","Anti-Aircraft Gun","artillery",0,4],["FA","Field Artillery","artillery",0,3],["HA","Heavy Artillery","artillery",0,2],["A1","Reconnaissance Plane","air",1,4],["A2","Bomber","air",2,3],["A3","Two-seat Fighter","air",3,2],["FB","Flying Boat","flyingboat",0,4],["SM","Submarine","ship",0,1],["N1","Destroyer","ship",1,4],["N2","Cruiser","ship",2,3],["N3","Battleship","ship",3,2],["N4","Aircraft Carrier","ship",4,1],["SL","Searchlight","auxiliary",0,8]].map(([id,name,group,rank,count])=>({id,name,group,rank,count}));
+const T=Object.fromEntries(UNITS.map(u=>[u.id,u]));
+const DESC={I1:'Infantry. Can capture the enemy H.Q.',I2:'Infantry. Can capture the enemy H.Q.',I3:'Infantry. Can capture the enemy H.Q.',I4:'Infantry. Can capture the enemy H.Q.',I5:'Infantry. Can capture the enemy H.Q.',AA:'Artillery. Brings down aircraft and Flying Boats.',FA:'Artillery. Strong against infantry.',HA:'Artillery. Sinks ships on a river or across the coastline.',A1:'Aircraft. Moves over land or sea. Captures Searchlights.',A2:'Aircraft. Destroys infantry and Field Artillery across the coastline.',A3:'Aircraft. Moves over land or sea.',FB:'Beats aircraft at sea but loses to them over land.',SM:'Ship. Sinks other ships. Can capture the Lake.',N1:'Ship. Can capture the enemy Lake by the river.',N2:'Ship. Can capture the enemy Lake by the river.',N3:'Ship. Can capture the enemy Lake by the river.',N4:'Ship. Can capture the enemy Lake by the river.',SL:'Moves any distance in a straight line, but only to attack.'};
+const VAL={I1:1.2,I2:2,I3:3,I4:4,I5:5,AA:2.5,FA:3,HA:5,A1:2,A2:5,A3:4,FB:4,SM:4,N1:3,N2:4,N3:5,N4:6,SL:1};
+const other=s=>s==='south'?'north':'south';
+const xy=(x,y)=>y*SIZE+x;
+const pos=n=>({x:n%SIZE,y:Math.floor(n/SIZE)});
+const BASES={north:{hq:xy(5,0),lake:xy(9,1),mouth:xy(6,2)},south:{hq:xy(5,11),lake:xy(9,10),mouth:xy(6,9)}};
+const BOARD=Array.from({length:SIZE*SIZE},(_,n)=>{const {x,y}=pos(n);
+  for(const side of ['south','north']){if(n===BASES[side].hq)return{terrain:'land',base:'hq',side};if(n===BASES[side].lake)return{terrain:'lake',base:'lake',side};}
+  if((y===2||y===9)&&x>=6&&x<=9)return{terrain:'river',side:y===2?'north':'south',mouth:x===6};
+  if((y===3||y===8)&&x<=6)return{terrain:'sea'};
+  if(y>=4&&y<=7&&x<=7)return{terrain:'sea'};
+  return{terrain:'land'};});
+const WOOD=new Set(['1,1','2,1','3,1','2,0','10,4','10,5','9,5','10,6','1,10','0,10','6,11','7,10']);
+const coord=n=>String.fromCharCode(65+n%SIZE)+(SIZE-Math.floor(n/SIZE));
+const isLand=t=>['infantry','artillery'].includes(T[t].group);
+const isShip=t=>T[t].group==='ship';
+const adjacent=(a,b)=>{const p=pos(a),q=pos(b);return Math.abs(p.x-q.x)+Math.abs(p.y-q.y)===1};
+const dist=(a,b)=>{const p=pos(a),q=pos(b);return Math.abs(p.x-q.x)+Math.abs(p.y-q.y)};
+const setupSquares=side=>BOARD.map((_,n)=>n).filter(n=>{const y=pos(n).y;return (side==='north'?y<5:y>=7)&&!BOARD[n].base});
+
+// Combat table, as read from the photographed original value table.
+const M=Object.fromEntries(UNITS.map(u=>[u.id,{}]));
+function pair(a,b,w){M[a][b]=w;M[b][a]=w}
+for(const p of ['I','N','A']){const max=p==='I'?5:p==='N'?4:3;for(let i=1;i<=max;i++)for(let j=i;j<=max;j++)pair(p+i,p+j,i===j?'X':p+j)}
+pair('FA','FA','X');pair('HA','HA','X');pair('FB','FB','X');
+pair('I1','AA','I1');pair('I1','FA','FA');pair('I1','A2','A2');pair('I1','SL','I1');
+pair('I2','FA','FA');pair('I2','HA','HA');pair('I2','A2','C');pair('I2','A3','A3');
+pair('I3','FA','X');pair('I3','HA','HA');pair('I3','A2','A2');
+pair('I4','FA','I4');pair('I4','HA','HA');pair('I4','A2','C');
+pair('I5','FA','I5');pair('I5','HA','HA');pair('I5','A2','C');
+for(let i=1;i<=5;i++)pair('I'+i,'FB','C');
+pair('AA','FA','FA');for(const id of ['A1','A2','A3','FB'])pair('AA',id,'AA');
+pair('FA','HA','HA');pair('FA','A2','C');pair('FA','A3','A3');pair('FA','FB','C');
+pair('HA','A2','A2');pair('A1','SL','A1');
+for(const id of ['A1','A2','A3'])pair(id,'FB','*');
+for(const id of ['SM','N1','N2','N3','N4']){pair(id,'AA','D');pair(id,'HA','P')}
+for(const id of ['N1','N2','N3','N4'])pair('SM',id,'SM');
+pair('SM','FB','FB');pair('FB','N1','N1');pair('FB','SL','FB');
+// The table is read attacker row → attacked column. One square differs by direction:
+M.I1.A1='I1'; // a Battalion attacking a Reconnaissance Plane wins; the reverse is blank
+
+function combat(att,def){
+  const a=att.type,d=def.type,ta=BOARD[att.at],td=BOARD[def.at];
+  const el=(t,c)=>c.terrain==='river'?(isShip(t)?'sea':'land'):(c.terrain==='lake'?'sea':c.terrain);
+  const ea=el(a,ta),ed=el(d,td),coast=ea!==ed,river=ta.terrain==='river'||td.terrain==='river';
+  const wins=(p,r)=>({ra:p===def,rd:p===att,r});
+  const none=r=>({ra:false,rd:false,r});
+  const typeWins=(t,r)=>({ra:a!==t,rd:d!==t,r});
+  for(const [s,l] of [[att,def],[def,att]]){
+    if(isShip(s.type)&&s.riverApproach&&BOARD[s.at].terrain==='river'&&isLand(l.type))
+      return wins(l.type==='HA'?l:s,l.type==='HA'?'Heavy Artillery sinks the ship on the river.':'A ship on its river approach defeats land forces.');
+  }
+  if(coast){
+    for(const [ai,l] of [[att,def],[def,att]]){
+      if(['A2','FB'].includes(ai.type)&&(T[l.type].group==='infantry'||l.type==='FA'))return wins(ai,'Bombers and Flying Boats destroy infantry and Field Artillery across the coastline.');
+    }
+    if((isShip(a)&&isLand(d))||(isLand(a)&&isShip(d))){
+      const land=isLand(a)?att:def,ship=isShip(a)?att:def;
+      if(land.type==='HA')return wins(land,'Heavy Artillery sinks ships across the coastline.');
+      if(land.type==='AA')return wins(ship,'Ships destroy Anti-Aircraft guns across the coastline.');
+      return {ra:true,rd:false,r:'An attack across the coastline between land and ship forfeits the attacker.'};
+    }
+  }
+  for(const [p,e] of [[def,att],[att,def]]){
+    const c=BOARD[p.at];
+    if(c.terrain==='sea'&&isLand(p.type)&&['ship','flyingboat','air','auxiliary'].includes(T[e.type].group))return wins(e,T[p.type].name+' caught out of its element at sea is forfeit.');
+    if(c.terrain==='land'&&isShip(p.type)&&['infantry','artillery','air','flyingboat','auxiliary'].includes(T[e.type].group))return wins(e,T[p.type].name+' caught out of its element on land is forfeit.');
+  }
+  const res=M[a][d]||'';
+  if(res==='X')return{ra:true,rd:true,r:'Equal strength: both pieces are removed.'};
+  // § squares: the Bomber or Flying Boat wins only across the coastline (handled above); anywhere else nothing happens
+  if(res==='C')return coast?wins(['A2','FB'].includes(a)?att:def,'Bombers and Flying Boats destroy infantry and Field Artillery across the coastline.'):none('Not across the coastline, so nothing happens: both pieces remain.');
+  if(res==='*'){
+    if(coast)return none('Flying Boat and aircraft across the coastline: neither is removed.');
+    const fb=a==='FB'?att:def,air=a==='FB'?def:att;
+    return wins(ea==='sea'?fb:air,ea==='sea'?'Flying Boat beats aircraft at sea.':'Aircraft beats Flying Boat over land.');
+  }
+  if(res==='P')return (river||coast)?typeWins('HA','Heavy Artillery sinks the ship.'):none('These pieces only clash on a river or across the coastline.');
+  if(res==='D')return (river||coast)?wins(isShip(a)?att:def,'The ship destroys the Anti-Aircraft gun.'):none('These pieces only clash on a river or across the coastline.');
+  return res?typeWins(res,T[res].name+' wins on the value table.'):none('Nothing happens: both pieces remain.');
+}
+
+function arrange(side){
+  const force=UNITS.flatMap(u=>Array.from({length:u.count},(_,i)=>({id:side+'-'+u.id+'-'+i,side,type:u.id,at:null,revealed:false,riverApproach:null,baseEntered:null})));
+  const cells=setupSquares(side);
+  for(let i=cells.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cells[i],cells[j]]=[cells[j],cells[i]]}
+  const used=new Set();
+  const take=pref=>{const n=pref.find(c=>!used.has(c))??cells.find(c=>!used.has(c));used.add(n);return n};
+  const sea=cells.filter(n=>BOARD[n].terrain==='sea'),land=cells.filter(n=>BOARD[n].terrain!=='sea');
+  const home=BASES[side].hq,lake=BASES[side].lake;
+  const near=(target)=>land.slice().sort((a,b)=>dist(a,target)-dist(b,target));
+  // A little sense: a Heavy Artillery near the river, strong infantry near H.Q.
+  const order=force.slice().sort((p,q)=>(isShip(q.type)?1:0)-(isShip(p.type)?1:0));
+  for(const p of order){
+    if(isShip(p.type))p.at=take(sea);
+    else if(p.type==='HA'&&!force.some(f=>f.type==='HA'&&f.at!==null&&dist(f.at,lake)<4))p.at=take(near(lake));
+    else if(p.type==='I5'||p.type==='I4')p.at=take(near(home));
+  }
+  for(const p of force.filter(p=>p.at===null&&isLand(p.type)))p.at=take(land);
+  for(const p of force.filter(p=>p.at===null))p.at=take(cells);
+  return force;
+}
+
+function newGame(){
+  return{phase:'setup',pieces:[...arrange('south').map(p=>Object.assign(p,{at:null})),...arrange('north')],turn:'south',turnNumber:0,sideTurns:{south:0,north:0},winner:null,history:[],last:null,lost:{south:{},north:{}},level:(G&&G.level)||'normal',timeline:[],events:[],deep:{south:0,north:0}};
+}
+function pieceAt(g,n){return g.pieces.find(p=>p.at===n)}
+function legal(g,piece){
+  if(!piece)return[];
+  const {x,y}=pos(piece.at),occ=new Set(g.pieces.map(p=>p.at)),out=[];
+  for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){
+    for(let s=1;s<SIZE;s++){
+      const nx=x+dx*s,ny=y+dy*s;
+      if(nx<0||nx>=SIZE||ny<0||ny>=SIZE)break;
+      const at=xy(nx,ny);if(occ.has(at))break;
+      if(s===1||(piece.type==='SL'&&g.pieces.some(p=>p.side!==piece.side&&adjacent(at,p.at))))out.push(at);
+      if(piece.type!=='SL')break;
+    }
+  }
+  return out;
+}
+function projectRA(piece,from,to){
+  if(!isShip(piece.type))return piece.riverApproach;
+  const c=BOARD[to],o=BOARD[from];
+  if(c.terrain==='river'){
+    if(c.mouth&&o.terrain==='sea'&&adjacent(from,to))return c.side;
+    if(!(o.terrain==='river'&&o.side===c.side))return null;
+    return piece.riverApproach;
+  }
+  if(c.terrain!=='lake')return null;
+  return piece.riverApproach;
+}
+function isWin(piece,from,to,ra){
+  const c=BOARD[to],o=BOARD[from];
+  const hq=c.base==='hq'&&c.side!==piece.side&&T[piece.type].group==='infantry';
+  const lake=c.base==='lake'&&c.side!==piece.side&&isShip(piece.type)&&ra===c.side&&o.terrain==='river'&&o.side===c.side;
+  return hq?'hq':(lake?'lake':null);
+}
+function outOfElement(p){
+  const t=BOARD[p.at].terrain;
+  return (isLand(p.type)&&(t==='sea'||t==='lake'))||(isShip(p.type)&&t==='land');
+}
+function material(g,side){return g.pieces.filter(p=>p.side===side).reduce((a,p)=>a+VAL[p.type],0)}
+function snapTimeline(g){(g.timeline||(g.timeline=[])).push({n:g.turnNumber,s:material(g,'south'),c:material(g,'north')})}
+// Applies a move. Returns {text, combat, win}
+function applyMove(g,side,id,to,targetId){
+  const piece=g.pieces.find(p=>p.id===id&&p.side===side);
+  const from=piece.at;
+  const ra=projectRA(piece,from,to);
+  piece.riverApproach=ra;piece.at=to;
+  g.turnNumber++;g.sideTurns[side]++;
+  const who=side==='south'?'You':'Computer';
+  const ev={from,to,side,combat:null,win:null};
+  const w=isWin(piece,from,to,ra);
+  if(w){g.winner=side;g.phase='over';piece.revealed=true;g.last={from,to,side};
+    ev.win=w;ev.text=who+(side==='south'?' capture':' captures')+' the '+(w==='hq'?'Headquarters':'Naval Base')+' with '+(side==='south'?'your ':'its ')+T[piece.type].name+'.';
+    g.history.push({n:g.turnNumber,t:ev.text});snapTimeline(g);return ev;}
+  piece.baseEntered=BOARD[to].base?g.sideTurns[side]:null;
+  const nm=side==='south'?T[piece.type].name+' ':'';
+  let text=who+' moved '+nm+coord(from)+' → '+coord(to)+'.';
+  if(targetId){
+    const target=g.pieces.find(p=>p.id===targetId);
+    const r=combat(piece,target);
+    const wasHidden={a:!piece.revealed,d:!target.revealed};
+    piece.revealed=true;target.revealed=true;
+    ev.combat={att:{type:piece.type,side},def:{type:target.type,side:target.side},at:target.at,ra:r.ra,rd:r.rd,r:r.r,hidden:wasHidden};
+    (g.events||(g.events=[])).push({n:g.turnNumber,side,att:piece.type,def:target.type,ra:r.ra,rd:r.rd,blind:wasHidden.d,
+      cause:/element/.test(r.r)?'element':/coastline/.test(r.r)?'coast':/river/.test(r.r)?'river':'table',sea:BOARD[target.at].terrain!=='land'});
+    text+=' '+T[piece.type].name+' attacked '+T[target.type].name+' at '+coord(target.at)+'. '+r.r;
+    if(r.ra){g.pieces=g.pieces.filter(p=>p.id!==piece.id);g.lost[side][piece.type]=(g.lost[side][piece.type]||0)+1}
+    if(r.rd){g.pieces=g.pieces.filter(p=>p.id!==target.id);g.lost[target.side][target.type]=(g.lost[target.side][target.type]||0)+1}
+  } else text+=' No attack.';
+  const expired=g.pieces.filter(p=>p.side===side&&p.baseEntered!==null&&p.baseEntered<g.sideTurns[side]&&BOARD[p.at].base);
+  for(const p of expired){text+=' '+(side==='south'?'Your ':'A computer ')+T[p.type].name+' at '+coord(p.at)+' stayed on a base and is forfeit.';g.lost[side][p.type]=(g.lost[side][p.type]||0)+1;(g.events||(g.events=[])).push({n:g.turnNumber,side,base:true,type:p.type})}
+  if(T[piece.type].group==='infantry'&&g.pieces.includes(piece)){const y=pos(to).y,adv=side==='south'?11-y:y;g.deep=g.deep||{south:0,north:0};g.deep[side]=Math.max(g.deep[side],adv)}
+  if(expired.length){const ids=new Set(expired.map(p=>p.id));g.pieces=g.pieces.filter(p=>!ids.has(p.id))}
+  ev.text=text;g.history.push({n:g.turnNumber,t:text});g.last={from,to,side};
+  g.turn=other(side);
+  snapTimeline(g);
+  if(!g.pieces.some(p=>p.side===g.turn&&legal(g,p).length)){g.winner=side;g.phase='over';g.history.push({n:g.turnNumber,t:(g.turn==='south'?'You have':'The computer has')+' no legal moves left.'})}
+  return ev;
+}
+
+// ---------- Computer opponent ----------
+function pool(g){ // what the computer can deduce about your unrevealed pieces
+  const c={};
+  for(const u of UNITS)c[u.id]=u.count-(g.lost.south[u.id]||0);
+  for(const p of g.pieces)if(p.side==='south'&&p.revealed)c[p.type]--;
+  return c;
+}
+function beliefFor(pl,cell){
+  const t=BOARD[cell].terrain,out=[];let sum=0;
+  for(const id in pl){if(pl[id]<=0)continue;
+    let w=pl[id];
+    if(t==='sea'||t==='lake'){w*=isLand(id)?0.25:(isShip(id)||id==='FB'?3:1)}
+    else{w*=isShip(id)?0.25:(isLand(id)?2:1)}
+    out.push([id,w]);sum+=w}
+  return out.map(([id,w])=>[id,w/sum]);
+}
+function expAttack(attacker,defender,belief){ // gain for attacker side
+  if(defender.known){const r=combat(attacker,defender);return (r.rd?VAL[defender.type]:0)-(r.ra?VAL[attacker.type]:0)}
+  let s=0;for(const [t,pr] of belief){const d={type:t,at:defender.at,riverApproach:null};const r=combat(attacker,d);s+=pr*((r.rd?VAL[t]:0)-(r.ra?VAL[attacker.type]:0))}
+  return s;
+}
+function danger(g,me,at,pl){ // expected loss if a nearby enemy attacks me next turn
+  let worst=0;
+  for(const s of g.pieces){
+    if(s.side!=='south')continue;const d=dist(s.at,at);if(d<1||d>2)continue;
+    const ghost={type:me.type,at,riverApproach:me.riverApproach};
+    let loss=0;
+    if(s.revealed){const r=combat({type:s.type,at:s.at,riverApproach:s.riverApproach},ghost);loss=r.rd?VAL[me.type]:0}
+    else{for(const [t,pr] of beliefFor(pl,s.at)){const r=combat({type:t,at:s.at,riverApproach:null},ghost);if(r.rd)loss+=pr*VAL[me.type]}}
+    worst=Math.max(worst,loss);
+  }
+  return worst;
+}
+// Strength settings. Easy: noisy and careless. Normal: weighs risk. Hard: also defends its bases and hunts raiders.
+const LEVELS={easy:{noise:1.6,danger:0,threat:0,rand:.3,info:0},normal:{noise:.25,danger:.55,threat:.5,rand:0,info:.2},hard:{noise:.05,danger:.85,threat:1.3,rand:0,info:.35}};
+function threats(g){ // your pieces menacing the computer's H.Q. or Lake
+  const s=new Set();
+  for(const p of g.pieces){if(p.side!=='south')continue;
+    const c=BOARD[p.at];
+    if(dist(p.at,BASES.north.hq)<=3&&!(p.revealed&&T[p.type].group!=='infantry'))s.add(p.id);
+    if(c.terrain==='river'&&c.side==='north'&&(!p.revealed||isShip(p.type)))s.add(p.id);
+    if(dist(p.at,BASES.north.mouth)<=1&&(!p.revealed||isShip(p.type)))s.add(p.id);
+  }
+  return s;
+}
+function posScore(piece,at,ra){
+  let s=0;const t=piece.type,c=BOARD[at];
+  if(T[t].group==='infantry')s-=dist(at,BASES.south.hq)*0.12*(1+T[t].rank*0.1);
+  else if(isShip(t)){
+    if(ra==='south'&&(c.terrain==='river'||c.terrain==='lake'))s+=3-dist(at,BASES.south.lake)*0.3;
+    else s-=dist(at,xy(6,8))*0.06;
+  }
+  if(isLand(t)&&(c.terrain==='sea'))s-=VAL[t]*0.5;
+  if(isShip(t)&&c.terrain==='land')s-=VAL[t]*0.5;
+  if(c.base)s-=1.2;
+  return s;
+}
+function computerMove(g){
+  const L=LEVELS[g.level||'normal']||LEVELS.normal,thr=threats(g);
+  const pl=pool(g),mine=g.pieces.filter(p=>p.side==='north');
+  if(L.rand&&Math.random()<L.rand){
+    const opts=[];for(const p of mine)for(const to of legal(g,p))if(dist(p.at,to)===1)opts.push({id:p.id,to,target:null});
+    if(opts.length){const o=opts[Math.floor(Math.random()*opts.length)];const e=g.pieces.find(q=>q.side==='south'&&adjacent(q.at,o.to));if(e&&Math.random()<.5)o.target=e.id;return o}
+  }
+  const onBase=mine.filter(p=>BOARD[p.at].base);
+  let best=null;
+  for(const p of mine){
+    const dests=legal(g,p);if(!dests.length)continue;
+    const baseHere=onBase.includes(p);
+    for(const to of dests){
+      const ra=projectRA(p,p.at,to);
+      const w=isWin(p,p.at,to,ra);
+      let base=(w?1000:0)+posScore(p,to,ra)-posScore(p,p.at,p.riverApproach);
+      if(baseHere)base+=VAL[p.type];
+      base-=onBase.filter(q=>q!==p).reduce((a,q)=>a+VAL[q.type],0);
+      const long=dist(p.at,to)>1;
+      const targets=g.pieces.filter(e=>e.side==='south'&&adjacent(e.at,to));
+      const opts=long?[]:[null];
+      for(const e of targets)opts.push(e);
+      for(const e of opts){
+        let sc=base+Math.random()*L.noise;
+        const saved={at:p.at,ra:p.riverApproach};p.at=to;p.riverApproach=ra;
+        if(e){const ev=expAttack(p,{type:e.type,at:e.at,known:e.revealed,riverApproach:e.riverApproach},beliefFor(pl,e.at));
+          sc+=ev+L.info+(thr.has(e.id)?L.threat*(2+Math.max(0,ev)):0)}
+        else{sc-=(danger(g,p,to,pl)-danger(g,p,saved.at,pl))*L.danger;
+          if(thr.size&&g.pieces.some(q=>thr.has(q.id)&&adjacent(q.at,to)))sc+=L.threat*0.8}
+        p.at=saved.at;p.riverApproach=saved.ra;
+        if(!best||sc>best.sc)best={sc,id:p.id,to,target:e?e.id:null};
+      }
+    }
+  }
+  return best;
+}
+
+// ---------- Card artwork ----------
+const PAL=t=>/^A[1-3]$/.test(t)?['#1E8FC8','#1E8FC8']:t==='SL'?['#1E8FC8','#F6D80F']:(/^N[1-4]$/.test(t)||t==='SM'||t==='FB')?['#F6D80F','#1E8FC8']:['#F6D80F','#5BA33B'];
+// Card lettering colour by service: sea blue, land green, air red, Searchlight dark gold
+const INK=t=>t==='SL'?'#9A6B00':/^A[1-3]$/.test(t)?'#C92A22':(/^N[1-4]$/.test(t)||t==='SM'||t==='FB')?'#1A63C4':'#24803A';
+const cardCode=t=>/^[INA][1-5]$/.test(t)?t.charAt(1):t;
+const TITLES={I1:['BATTALION'],I2:['BRIGADE'],I3:['DIVISION'],I4:['ARMY CORPS'],I5:['ARMY'],AA:['ANTI-AIRCRAFT','GUN'],HA:['HEAVY ARTILLERY'],FA:['FIELD ARTILLERY'],A1:['RECONNAISSANCE','PLANE'],A2:['BOMBER'],A3:['FIGHTER PLANE'],FB:['FLYING BOAT'],SM:['SUBMARINE'],N1:['DESTROYER'],N2:['CRUISER'],N3:['BATTLESHIP'],N4:['AIRCRAFT CARRIER'],SL:['SEARCHLIGHT']};
+const TANK='M2 0 H38 Q40 0 40 -3 V-6 H0 V-3 Q0 0 2 0 Z M3 -6 H37 L34 -11 H6 Z M12 -11 H26 V-15 Q19 -18 12 -15 Z M24 -14.5 H41 V-12.5 H24 Z';
+function art(t){
+  const K='#141414';let s='';
+  const sky=PAL(t)[0];s+=`<rect width="134" height="134" fill="${sky}"/>`;
+  const seaPath=()=>{let d='M0 100';for(let w=0;w<134;w+=8)d+=` Q${w+4} 96.5 ${w+8} 100`;return `<path d="${d} V134 H0 Z" fill="#1E8FC8"/>`};
+  const g=(tf,inner)=>`<g transform="${tf}" fill="${K}">${inner}</g>`;
+  if(/^I[1-5]$/.test(t)){
+    s+='<rect y="100" width="134" height="34" fill="#5BA33B"/>';
+    const n=+t[1],sc=Math.min(2.2,(124-(n-1)*4)/(41*n)),tot=n*41*sc+(n-1)*4,x0=(134-tot)/2;
+    for(let i=0;i<n;i++)s+=g(`translate(${(x0+i*(41*sc+4)).toFixed(1)} 100) scale(${sc.toFixed(3)})`,`<path d="${TANK}"/>`);
+  } else if(t==='AA'){s+='<rect y="100" width="134" height="34" fill="#5BA33B"/>'+g('translate(22 100) scale(2.2)','<path d="M2 0 H38 Q40 0 40 -3 V-6 H0 V-3 Q0 0 2 0 Z M3 -6 H37 L34 -11 H6 Z M13 -11 H27 V-16 H13 Z M20 -15 L35 -36 L37.5 -34.5 L23 -13 Z M23 -15 L38 -34 L39.5 -32.5 L25 -13 Z"/>')}
+  else if(t==='HA'){s+='<rect y="100" width="134" height="34" fill="#5BA33B"/>'+g('translate(14 100) scale(2.2)','<path d="M0 0 H46 V-6 H40 L35 -13 H11 L6 -6 H0 Z M20 -16 L44 -34 L46.5 -30.5 L23 -12 Z M16 -13 V-19 H26 V-13 Z"/><circle cx="10" cy="-3" r="2" fill="#F2EEE2"/><circle cx="36" cy="-3" r="2" fill="#F2EEE2"/>')}
+  else if(t==='FA'){s+='<rect y="100" width="134" height="34" fill="#5BA33B"/>'+g('translate(16 100) scale(2.1)','<path d="M8 -11 H36 L33 -21 H12 Z M30 -18 H50 V-15 H30 Z"/><circle cx="14" cy="-7" r="7"/><circle cx="32" cy="-7" r="7"/><circle cx="14" cy="-7" r="2.8" fill="#F2EEE2"/><circle cx="32" cy="-7" r="2.8" fill="#F2EEE2"/>')}
+  else if(t==='SL'){
+    s+='<polygon points="30,96 0,30 0,6 40,94" fill="#EAF4FB"/><polygon points="102,96 134,22 134,48 94,94" fill="#EAF4FB"/><rect x="24" y="88" width="16" height="10" rx="2" fill="#141414"/><rect x="94" y="88" width="16" height="10" rx="2" fill="#141414"/><rect y="96" width="134" height="38" fill="#F6D80F"/><g stroke="#141414" stroke-width="1.6">';
+    [96,105,114,123].forEach(y=>s+=`<line x1="0" y1="${y}" x2="134" y2="${y}"/>`);
+    [[96,105],[105,114],[114,123],[123,134]].forEach((r,ri)=>{for(let bx=(ri%2?8:16);bx<134;bx+=16)s+=`<line x1="${bx}" y1="${r[0]}" x2="${bx}" y2="${r[1]}"/>`});
+    s+='</g>';
+  } else if(t==='A1'||t==='A3'){
+    if(t==='A3')s+='<circle cx="104" cy="104" r="11" fill="#F6D80F"/>';else s+='<g fill="#fff"><ellipse cx="34" cy="112" rx="10" ry="4"/><ellipse cx="42" cy="110" rx="7" ry="4"/><ellipse cx="98" cy="118" rx="8" ry="3"/></g>';
+    s+=g(t==='A1'?'translate(64 66) rotate(-24) scale(1.55)':'translate(60 62) rotate(-36) scale(1.85)','<path d="M-3 -24 Q0 -28 3 -24 V18 L9 22 V25 H-9 V22 L-3 18 Z M-26 -4 L-3 -8 H3 L26 -4 V1 L3 -1 H-3 L-26 1 Z"/><circle cy="-12" r="3.4" fill="#F6D80F"/>');
+  } else if(t==='A2'){
+    // Head-on bomber banking towards the viewer, engine discs picked out in yellow, storm clouds below
+    s+='<g fill="#141414"><ellipse cx="22" cy="112" rx="13" ry="6"/><ellipse cx="35" cy="108" rx="10" ry="6"/><ellipse cx="62" cy="124" rx="9" ry="4"/><ellipse cx="98" cy="118" rx="13" ry="5"/><ellipse cx="109" cy="114" rx="8" ry="5"/></g>';
+    s+='<g transform="rotate(14 67 60)" fill="#141414"><path d="M5 62 L60 56 H74 L129 62 V66 L74 62.5 H60 L5 66 Z"/><path d="M50 49 H84 V52 H50 Z M64.6 51 L67 34 L69.4 51 Z"/><circle cx="67" cy="59" r="9.5"/><circle cx="67" cy="59" r="4.4" fill="#F6D80F"/>'+[29,45,89,105].map(x=>`<circle cx="${x}" cy="65" r="6"/><circle cx="${x}" cy="65" r="2.8" fill="#F6D80F"/>`).join('')+'</g>';
+  } else if(t==='FB'){
+    // Head-on flying boat over the sea: wings across the picture, a float under each wing
+    s+=seaPath();
+    s+='<g stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="110" x2="24" y2="110"/><line x1="46" y1="117" x2="60" y2="117"/><line x1="88" y1="110" x2="100" y2="110"/><line x1="108" y1="124" x2="120" y2="124"/><line x1="24" y1="126" x2="34" y2="126"/></g>';
+    s+='<g fill="#141414"><path d="M3 48 L131 48 L131 52.5 L3 52.5 Z"/><path d="M64.6 48 L67 27 L69.4 48 Z M55 45.5 H79 V48 H55 Z"/><path d="M57.5 52 Q67 47 76.5 52 L74.5 76 Q67 83 59.5 76 Z"/><circle cx="46" cy="51" r="5.5"/><circle cx="88" cy="51" r="5.5"/><path d="M22.8 52 H25.2 V71 H22.8 Z M108.8 52 H111.2 V71 H108.8 Z"/><path d="M14 71 H34 Q36 73.5 34 75.5 H14 Q12 73.5 14 71 Z M100 71 H120 Q122 73.5 120 75.5 H100 Q98 73.5 100 71 Z"/></g><circle cx="46" cy="51" r="2.4" fill="#F6D80F"/><circle cx="88" cy="51" r="2.4" fill="#F6D80F"/>';
+  } else if(t==='SM'){
+    // Submarine running mostly submerged: hull shaded under the waves, conning tower and periscope above
+    s+='<defs><pattern id="tthatch" width="4" height="4" patternUnits="userSpaceOnUse"><path d="M0 4 L4 0" stroke="#141414" stroke-width="1.15"/></pattern></defs>';
+    let d='M0 86';for(let w=0;w<134;w+=8)d+=` Q${w+4} 82.5 ${w+8} 86`;
+    s+=`<path d="${d} V134 H0 Z" fill="#1E8FC8"/>`;
+    s+='<path d="M9 99 Q12 86 30 86 H104 Q122 86 126 99 Q122 112 104 113 H30 Q12 112 9 99 Z" fill="url(#tthatch)" stroke="#141414" stroke-width="2"/>';
+    s+='<path d="M50 87 V70 Q52 62 62 62 H71 Q75 62 79 70 L81 87 Z M64 62 V46 H66.2 V62 Z M64 46 H73 V48.4 H64 Z M12 87 Q18 81 30 81 H50 V87 Z" fill="#141414"/>';
+  } else {
+    s+=seaPath();
+    const ships={N1:['translate(19 104) scale(1.6)','M6 0 L0 -9 H60 L54 0 Z M22 -9 V-17 H36 V-9 Z M28 -17 V-32 H30 V-17 Z M23 -27 H35 V-25.5 H23 Z M38 -9 V-13 H44 V-9 Z'],
+      N2:['translate(15 104) scale(1.72)','M6 0 L0 -10 H60 L54 0 Z M14 -10 V-16 H22 V-22 H38 V-16 H46 V-10 Z M29 -22 V-36 H31 V-22 Z M24 -31 H36 V-29.5 H24 Z M4 -12 H14 V-14 H4 Z M46 -12 H56 V-14 H46 Z'],
+      N3:['translate(11 105) scale(1.86)','M5 0 L0 -10 H60 L55 0 Z M10 -10 V-18 H18 V-26 H40 V-18 H50 V-10 Z M28 -26 V-40 H30 V-26 Z M22 -35 H36 V-33.5 H22 Z M0 -13 H10 V-15.5 H0 Z M50 -13 H60 V-15.5 H50 Z'],
+      N4:['translate(9 105) scale(1.85)','M8 0 L2 -9 H0 V-11 H62 V-9 L58 0 Z M42 -11 V-21 H50 V-11 Z M45 -21 V-30 H47 V-21 Z M41 -27 H51 V-25.5 H41 Z M16 -14 L19 -16 L22 -14 L19 -13.2 Z'],
+      SM:['translate(14 110) scale(1.75)','M0 0 Q3 -8 14 -8 H48 Q58 -8 60 0 Q58 5 48 5 H12 Q3 5 0 0 Z M26 -8 V-16 H35 L38 -8 Z M31 -16 V-24 H32.5 V-16 Z M31 -24 H36 V-22.8 H31 Z'],
+      FB:['translate(6 86) scale(1.85)','M0 -10 Q2 -15 10 -15 H54 L60 -21 H64 L62 -11 H8 Q2 -11 0 -10 Z M8 -19 H58 V-17 H8 Z M18 -11 V-3 H19.5 V-11 Z M46 -11 V-3 H47.5 V-11 Z M12 -3 H26 Q28 -1.5 26 -0.5 H12 Z M40 -3 H54 Q56 -1.5 54 -0.5 H40 Z']};
+    const sh=ships[t];s+=g(sh[0],`<path d="${sh[1]}"/>`);
+  }
+  return s;
+}
+function cardSVG(t,side,w){
+  const edge=side==='south'?'#C4561F':side==='north'?'#263B5E':'#CFC8B4';
+  const ew=side?5:1.5;
+  if(t==='back')return `<svg viewBox="0 0 220 150" width="${w}" role="img" aria-label="Hidden piece"><rect x="1" y="1" width="218" height="148" rx="8" fill="#263B5E" stroke="#1A2A44" stroke-width="2"/><rect x="10" y="10" width="200" height="130" rx="5" fill="none" stroke="#6E83A6"/><text x="110" y="80" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="24" letter-spacing="3" fill="#C9D3E4">TRI TACTICS</text></svg>`;
+  const tl=TITLES[t],code=cardCode(t),fs=tl.length>1||tl[0].length>13?15:17;
+  const title=tl.map((l,i)=>`<tspan x="75" dy="${i?15:0}">${l}</tspan>`).join('');
+  return `<svg viewBox="0 0 220 150" width="${w}" role="img" aria-label="${T[t].name}"><rect x="${ew/2}" y="${ew/2}" width="${220-ew}" height="${150-ew}" rx="8" fill="#F2EEE2" stroke="${edge}" stroke-width="${ew}"/><svg x="8" y="8" width="134" height="134" viewBox="0 0 134 134">${art(t)}</svg><text x="75" y="${tl.length>1?22:25}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="${fs}" fill="#141414">${title}</text><text x="181" y="${code.length>1?94:100}" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="${code.length>1?50:72}" fill="${INK(t)}">${code}</text></svg>`;
+}
+
+// ---------- UI ----------
+let G=null,ui={sel:null,pending:null,busy:false,modal:null};
+// ---------- Sound (synthesised, starts after your first tap) ----------
+let AC=null,soundOn=true;try{soundOn=localStorage.getItem('tt-sound')!=='off'}catch(e){}
+const REDUCE=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){AC=null}}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function tone(f,d,type,vol,when,slide){const c=ac();if(!c)return;const t=c.currentTime+(when||0),o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+d);g.gain.setValueAtTime(vol||.12,t);g.gain.exponentialRampToValueAtTime(.0008,t+d);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+.03)}
+function boom(d,vol,when,freq){const c=ac();if(!c)return;const t=c.currentTime+(when||0),len=Math.floor(c.sampleRate*d),b=c.createBuffer(1,len,c.sampleRate),ch=b.getChannelData(0);for(let i=0;i<len;i++)ch[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);const s=c.createBufferSource(),f=c.createBiquadFilter(),g=c.createGain();s.buffer=b;f.type='lowpass';f.frequency.value=freq||700;g.gain.value=vol||.3;s.connect(f);f.connect(g);g.connect(c.destination);s.start(t)}
+function sfx(k){if(!soundOn)return;try{
+  if(k==='select')tone(880,.05,'triangle',.06);
+  else if(k==='place')tone(520,.05,'square',.035);
+  else if(k==='move'){tone(300,.09,'triangle',.09,0,200)}
+  else if(k==='attack'){boom(.55,.4,0,650);tone(110,.45,'sine',.22,0,50)}
+  else if(k==='reveal'){tone(660,.08,'triangle',.07,.25);tone(990,.1,'triangle',.06,.5)}
+  else if(k==='win')[523,659,784,1047].forEach((f,i)=>tone(f,.28,'triangle',.11,i*.13));
+  else if(k==='lose')[392,330,262,196].forEach((f,i)=>tone(f,.34,'sine',.11,i*.2));
+  else if(k==='undo')tone(700,.12,'triangle',.07,0,350);
+}catch(e){}}
+function setSound(on){soundOn=on;try{localStorage.setItem('tt-sound',on?'on':'off')}catch(e){}const b=$('btnSound');b.textContent=on?'Sound on':'Sound off';b.setAttribute('aria-pressed',on)}
+function animate(){
+  const a=ui.anim;ui.anim=null;if(!a||REDUCE)return;
+  const bd=$('board'),fc=bd.querySelector(`[data-n="${a.from}"]`),tc=bd.querySelector(`[data-n="${a.to}"]`),pc=tc&&tc.querySelector('.pc');
+  if(!fc||!pc)return;
+  const rf=fc.getBoundingClientRect(),rt=tc.getBoundingClientRect();
+  tc.style.zIndex=3;pc.style.transition='none';pc.style.transform=`translate(${rf.left-rt.left}px,${rf.top-rt.top}px)`;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{pc.style.transition='transform .34s cubic-bezier(.2,.7,.2,1)';pc.style.transform=''}));
+  setTimeout(()=>{tc.style.zIndex=''},420);
+}
+const KEY='tri-tactics-practice-v1';
+function save(){try{localStorage.setItem(KEY,JSON.stringify(G))}catch(e){}}
+function load(){try{const s=localStorage.getItem(KEY);if(s){const g=JSON.parse(s);if(g&&g.pieces)return g}}catch(e){}return null}
+const $=id=>document.getElementById(id);
+const SEGS={'6,2':['hr','vd'],'7,2':['h'],'8,2':['h'],'9,2':['hl','vu'],'9,1':['vd'],'6,9':['hr','vu'],'7,9':['h'],'8,9':['h'],'9,9':['hl','vd'],'9,10':['vu']};
+function coastShadow(n){
+  if(BOARD[n].terrain!=='sea')return '';
+  const {x,y}=pos(n),open=(a,b)=>a<0||a>11||b<0||b>11||(a===6&&(b===2||b===9))||BOARD[xy(a,b)].terrain==='sea';
+  const sh=[];const w='.55cqi';
+  if(!open(x,y-1))sh.push(`inset 0 ${w} 0 var(--bank)`);
+  if(!open(x,y+1))sh.push(`inset 0 -${w} 0 var(--bank)`);
+  if(!open(x-1,y))sh.push(`inset ${w} 0 0 var(--bank)`);
+  if(!open(x+1,y))sh.push(`inset -${w} 0 0 var(--bank)`);
+  return sh.length?`box-shadow:${sh.join(',')}`:'';
+}
+function terrainName(n){const c=BOARD[n];return c.base==='hq'?(c.side==='south'?'your Headquarters':'computer Headquarters'):c.base==='lake'?(c.side==='south'?'your Lake':'computer Lake'):c.terrain}
+function render(){
+  const g=G,me='south';
+  const p=ui.pending;
+  const sel=ui.sel?g.pieces.find(q=>q.id===ui.sel):null;
+  const dests=new Set(sel&&!p&&g.phase==='play'&&g.turn===me?legal(g,sel):[]);
+  const targets=new Set(p?p.targets:[]);
+  let html='';
+  for(let n=0;n<144;n++){
+    const {x,y}=pos(n),c=BOARD[n];
+    let piece=pieceAt(g,n);
+    let ghost=false;
+    if(p){if(n===p.from){ghost=true}else if(n===p.to){piece=g.pieces.find(q=>q.id===p.id)}}
+    const cls=['cell'];if(c.terrain==='sea')cls.push('sea');else if(WOOD.has(x+','+y))cls.push('wood');
+    let inner='';
+    (SEGS[x+','+y]||[]).forEach(s=>inner+=`<span class="rb ${s}"></span>`);
+    (SEGS[x+','+y]||[]).forEach(s=>inner+=`<span class="rw ${s}"></span>`);
+    if(c.base==='lake')inner+='<span class="lk1"></span><span class="lk2"></span>';
+    if(c.base==='hq')inner+='<span class="hq">HQ</span>';
+    if(g.last&&!p&&n===g.last.from)inner+='<span class="lastfrom"></span>';
+    if(g.phase==='setup'&&ZONE.has(n))inner+='<span class="zone"></span>';
+    if(dests.has(n))inner+='<span class="dot"></span>';
+    let label=coord(n)+', '+terrainName(n);
+    const drawPiece=(pc,ghostly)=>{
+      const mine=pc.side===me,show=mine||(pc.revealed&&g.phase!=='setup')||g.phase==='over';
+      if(!show){label+=', computer piece face down';return `<span class="pc back${ghostly?' ghost':''}"></span>`}
+      const pal=PAL(pc.type);label+=(mine?', your ':', computer ')+T[pc.type].name;
+      let s=`<span class="pc face ${mine?'mine':'enemy'}${ghostly?' ghost':''}"><span class="st" style="background:${pal[0]}"><i style="background:${pal[1]}"></i></span><b style="color:${INK(pc.type)}">${cardCode(pc.type)}</b></span>`;
+      if(mine&&outOfElement(pc))s+='<span class="warnd"></span>';
+      return s;
+    };
+    if(ghost){inner+=drawPiece(g.pieces.find(q=>q.id===p.id),true)}
+    else if(piece){
+      if(p&&n===p.to){const saved=piece.at;piece.at=n;inner+=drawPiece(piece,false);piece.at=saved}
+      else inner+=drawPiece(piece,false);
+    }
+    if(g.last&&!p&&n===g.last.to&&piece)inner+='<span class="lastto"></span>';
+    if((sel&&!p&&piece&&piece.id===sel.id)||(p&&n===p.to))inner+='<span class="ring"></span>';
+    if(targets.has(n))inner+='<span class="tgt"></span>';
+    if(dests.has(n))label+=', move here';if(targets.has(n))label+=', attack this piece';
+    html+=`<button type="button" class="${cls.join(' ')}" data-n="${n}" style="${coastShadow(n)}" aria-label="${label}">${inner}</button>`;
+  }
+  $('board').innerHTML=html;
+  animate();
+  document.querySelectorAll('#seg [data-level]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.level===(g.level||'normal')));
+  // status
+  const st=$('status');
+  if(g.phase==='setup'){st.textContent='SET UP';st.className='pill'}
+  else if(g.phase==='over'){st.textContent=g.winner===me?'YOU WON':'COMPUTER WON';st.className='pill done'}
+  else if(g.turn===me){st.textContent='YOUR MOVE';st.className='pill'}
+  else {st.textContent='COMPUTER’S MOVE';st.className='pill wait'}
+  const cnt=s=>g.pieces.filter(q=>q.side===s).length;
+  $('cntMe').textContent=cnt('south')+' pieces';$('cntCpu').textContent=cnt('north')+' pieces';
+  $('log').innerHTML=g.history.slice().reverse().slice(0,40).map(h=>`<div><span>${h.n}</span><span>${h.t}</span></div>`).join('')||'<div><span></span><span class="muted">Moves will appear here.</span></div>';
+  renderAction();
+  renderTray();
+  save();
+}
+const ZONE=new Set(setupSquares('south'));
+function tileHTML(t,side){const pal=PAL(t);return `<span class="pc face ${side==='south'?'mine':'enemy'}"><span class="st" style="background:${pal[0]}"><i style="background:${pal[1]}"></i></span><b style="color:${INK(t)}">${cardCode(t)}</b></span>`}
+let trayOpen=true;try{trayOpen=localStorage.getItem('tt-tray')!=='closed'}catch(e){}
+function renderTray(){
+  const g=G,el=$('tray');
+  if(g.phase==='setup'){
+    const left=g.pieces.filter(p=>p.side==='south'&&p.at===null);
+    const sel=ui.sel?g.pieces.find(q=>q.id===ui.sel):null;
+    el.classList.toggle('drop',!!sel);
+    const groups=[['Land',['I1','I2','I3','I4','I5','AA','FA','HA']],['Air',['A1','A2','A3','SL']],['Sea',['FB','SM','N1','N2','N3','N4']]];
+    let h=`<div class="trayhead"><span class="lbl">YOUR RESERVE · ${left.length} TO PLACE</span><span class="muted">${sel?'Tap here to return the selected card to the reserve.':left.length?'Tap a card type, then tap squares in your shaded rows.':'All 56 cards deployed.'}</span></div><div class="trow">`;
+    for(const [name,ids] of groups){
+      h+=`<div class="tgroup"><span class="muted">${name}</span><div class="trow">`;
+      for(const t of ids){const n=left.filter(p=>p.type===t).length;
+        h+=`<button type="button" class="tk${ui.trayType===t?' on':''}" data-type="${t}" ${n?'':'disabled'} aria-label="${T[t].name}, ${n} in reserve">${tileHTML(t,'south')}${n?`<span class="cnt">${n}</span>`:''}</button>`}
+      h+='</div></div>';
+    }
+    el.innerHTML=h+'</div>';
+    return;
+  }
+  el.classList.remove('drop');
+  const row=(lost,side)=>{const ids=UNITS.map(u=>u.id).filter(t=>lost[t]);return ids.length?ids.map(t=>`<span class="tk" role="img" aria-label="${T[t].name} ×${lost[t]}">${tileHTML(t,side)}${lost[t]>1?`<span class="cnt">${lost[t]}</span>`:''}</span>`).join(''):'<span class="muted">None yet.</span>'};
+  const took=Object.values(g.lost.north).reduce((a,b)=>a+b,0),lost=Object.values(g.lost.south).reduce((a,b)=>a+b,0);
+  el.innerHTML=`<div class="trayhead"><span class="lbl">CAPTURED · YOU TOOK ${took} · YOU LOST ${lost}</span><button type="button" class="btn" id="trayTog" aria-expanded="${trayOpen}">${trayOpen?'Hide':'Show'}</button></div>`+
+    (trayOpen?`<div class="tgroup"><span class="muted">Computer cards you have taken</span><div class="trow">${row(g.lost.north,'north')}</div></div><div class="tgroup"><span class="muted">Your cards you have lost</span><div class="trow">${row(g.lost.south,'south')}</div></div>`:'');
+  $('trayTog').onclick=()=>{trayOpen=!trayOpen;try{localStorage.setItem('tt-tray',trayOpen?'open':'closed')}catch(e){}renderTray()};
+}
+function onTray(e){
+  if(G.phase!=='setup')return;
+  const b=e.target.closest('[data-type]');
+  if(b&&!b.disabled){ui.sel=null;ui.trayType=ui.trayType===b.dataset.type?null:b.dataset.type;render();return}
+  if(ui.sel){const p=G.pieces.find(q=>q.id===ui.sel);p.at=null;ui.sel=null;render()}
+}
+function autofill(side){
+  const free=setupSquares(side).filter(n=>!pieceAt(G,n));
+  for(let i=free.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[free[i],free[j]]=[free[j],free[i]]}
+  const used=new Set(),take=pref=>{const n=pref.find(c=>!used.has(c))??free.find(c=>!used.has(c));used.add(n);return n};
+  const sea=free.filter(n=>BOARD[n].terrain==='sea'),land=free.filter(n=>BOARD[n].terrain!=='sea');
+  const todo=G.pieces.filter(p=>p.side===side&&p.at===null);
+  for(const p of todo.filter(p=>isShip(p.type)))p.at=take(sea);
+  for(const p of todo.filter(p=>isLand(p.type)))p.at=take(land);
+  for(const p of todo.filter(p=>p.at===null))p.at=take(free);
+}
+// ---------- Card information, worked out from the same value table the game uses ----------
+const SHIPS=['SM','N1','N2','N3','N4'],AIR=['A1','A2','A3'];
+const NOTES={
+  infantry:['Victory: the only cards that can capture the enemy H.Q.','Forfeit if caught at sea by a ship, aircraft or Searchlight.','Loses to any ship on its river approach.','Attacking a ship across the coastline forfeits it.'],
+  AA:['Ships destroy it on a river or across the coastline.','Forfeit if caught at sea by a ship, aircraft or Searchlight.','Cannot capture a base.'],
+  FA:['Bombers and Flying Boats destroy it across the coastline.','Forfeit if caught at sea by a ship, aircraft or Searchlight.','Attacking a ship across the coastline forfeits it.','Cannot capture a base.'],
+  HA:['Sinks ships on a river or across the coastline, even a ship on its river approach.','The best guard for your river and Lake.','Forfeit if caught at sea by a ship, aircraft or Searchlight.','Cannot capture a base.'],
+  ship:['Victory: can capture the enemy Lake. Enter the river mouth from the sea, sail up the river and into the Lake.','On its river approach it defeats every land force except Heavy Artillery.','A ship that reaches the river from land cannot attack the Lake.','Forfeit if caught on land by land forces, aircraft or Searchlights.','Attacking a land force across the coastline forfeits it, except an Anti-Aircraft gun, which it destroys.','Heavy Artillery sinks it on a river or across the coastline.'],
+  FB:['Moves over land or sea without penalty.','Against aircraft: wins at sea, loses over land, and across the coastline nothing happens.','Destroys infantry and Field Artillery across the coastline.','Cannot capture the Lake.'],
+  air:['Moves over land or sea without penalty.','Cannot capture a base.'],
+  A2:['Destroys infantry and Field Artillery across the coastline.'],
+  airFB:['Against a Flying Boat: wins over land, loses at sea, and across the coastline nothing happens.'],
+  SL:['Special move: any number of squares in a straight line over empty squares, but only when the move ends in an attack.','Moves over land or sea without penalty.','Cannot capture a base.']
+};
+function intel(t){
+  const beats=[],beaten=[],both=[],depends=[];
+  for(const u of UNITS){const v=u.id,r=M[t][v]||'',r2=M[v][t]||'';
+    const nm=v===t?'another '+T[v].name:T[v].name;
+    if(r!==r2){
+      const res=(x,att,def)=>x===att?'you win':x===def?'you lose':x==='X'?'both removed':'nothing happens';
+      depends.push(nm+': if you attack, '+res(r,t,v)+'; if it attacks you, '+res(r2,t,v));
+      continue;
+    }
+    if(r==='X')both.push(nm);
+    else if(r===t)beats.push(nm);
+    else if(r===v)beaten.push(nm);
+    else if(r==='C')depends.push(['A2','FB'].includes(t)?nm+': you destroy it only across the coastline':nm+': destroys you only across the coastline');
+    else if(r==='*')depends.push(t==='FB'?nm+': Flying Boat wins at sea, loses over land':nm+': you win over land, lose at sea');
+    else if(r==='P')depends.push(t==='HA'?nm+': sunk on a river or across the coastline':nm+': sinks you on a river or across the coastline');
+    else if(r==='D')depends.push(t==='AA'?nm+': destroys you on a river or across the coastline':nm+': you destroy it on a river or across the coastline');
+  }
+  const g=T[t].group;
+  let notes=g==='infantry'?NOTES.infantry:g==='ship'?NOTES.ship:g==='air'?NOTES.air.concat(t==='A2'?NOTES.A2:[],NOTES.airFB):NOTES[t]||[];
+  notes=notes.concat(['Must move off an H.Q. or Lake on its next turn, or it is forfeit.']);
+  const row=(label,list,cls)=>list.length?`<div class="ir"><span class="il">${label}</span><span class="chips">${list.map(x=>`<span class="chip ${cls}">${x}</span>`).join('')}</span></div>`:'';
+  return `<div class="intel">${row('Beats',beats,'win')}${row('Beaten by',beaten,'lose')}${row('Both removed',both,'draw')}${row('Depends where',depends,'draw')}
+  ${!beats.length&&!beaten.length&&!both.length&&!depends.length?'<div class="ir"><span class="il">Combat</span><span>Nothing happens against any card, except where the special rules below apply.</span></div>':''}
+  <div class="ir"><span class="il">Special rules</span><ul class="notes">${notes.map(n=>`<li>${n}</li>`).join('')}</ul></div>
+  <p class="muted" style="font-size:13px">Any pair not listed: nothing happens, both cards stay.</p></div>`;
+}
+function renderAction(){
+  const g=G,a=$('action'),me='south';
+  const sel=ui.sel?g.pieces.find(q=>q.id===ui.sel):null;
+  const selBlock=pc=>{const mine=pc.side==='south';return `<div class="sel">${cardSVG(pc.type,mine?'south':'north',132)}<div><div class="h2" style="font-size:24px">${T[pc.type].name}</div><div class="muted">${mine?'Your card':'Computer’s card'} · ${T[pc.type].rank?'Rank '+T[pc.type].rank+' · ':''}at ${coord(pc.at)}</div></div></div><p>${DESC[pc.type]}</p>${mine&&outOfElement(pc)?'<div class="warn">Out of its element here. If caught, it is forfeit. Only you can see this warning.</div>':''}${intel(pc.type)}`};
+  const insp=ui.inspect?g.pieces.find(q=>q.id===ui.inspect):null;
+  if(insp&&g.phase==='play'&&g.turn===me&&!ui.pending&&!sel){a.innerHTML=selBlock(insp)+'<div class="row"><button class="btn" id="aBack" type="button">Back to my move</button></div>';$('aBack').onclick=()=>{ui.inspect=null;render()};return}
+  if(g.phase==='setup'){
+    const left=g.pieces.filter(q=>q.side==='south'&&q.at===null).length;
+    const typeBlock=t=>`<div class="sel">${cardSVG(t,'south',132)}<div><div class="h2" style="font-size:24px">${T[t].name}</div><div class="muted">Placing · tap squares in your shaded rows</div></div></div><p>${DESC[t]}</p>${intel(t)}`;
+    let body;
+    if(sel)body=selBlock(sel)+'<p class="muted">Tap another square to move it there, another of your cards to swap, or the reserve to take it back.</p><div class="row"><button class="btn" id="aBack" type="button">Return to reserve</button></div>';
+    else if(ui.trayType)body=typeBlock(ui.trayType);
+    else body=`<p>${left?'Tap a card type in your reserve below the board, then tap squares in your shaded five rows to deploy them. Tap a deployed card to move it, swap it or send it back.':'Every card is deployed. Tap any card to move or swap it, then lock your deployment.'}</p><p class="muted">Tip: keep ships at sea, a Heavy Artillery near your river, and strong infantry near your H.Q. H.Q. and Lake squares must stay empty.</p>`;
+    a.innerHTML=`<h2 class="h2">Deploy your forces</h2><p class="muted">${56-left} of 56 deployed. The computer has set up its side in secret.</p>${body}
+    <div class="row"><button class="btn primary" id="aStart" type="button" ${left?'disabled':''}>${left?'Place all 56 to start':'Lock deployment and start'}</button>${left?'<button class="btn" id="aFill" type="button">Place the rest for me</button>':''}<button class="btn" id="aClear" type="button">Clear the board</button></div>`;
+    $('aStart').onclick=startBattle;
+    if($('aFill'))$('aFill').onclick=()=>{autofill('south');ui.sel=null;ui.trayType=null;render()};
+    $('aClear').onclick=()=>{G.pieces.forEach(q=>{if(q.side==='south')q.at=null});ui.sel=null;ui.trayType=null;render()};
+    if($('aBack'))$('aBack').onclick=()=>{sel.at=null;ui.sel=null;render()};
+    return;
+  }
+  if(g.phase==='over'){
+    a.innerHTML=`<h2 class="h2">${g.winner===me?'Victory':'Defeat'}</h2><p>${g.history.slice(-1)[0].t}</p><p class="muted">All the computer's cards are now shown on the board.</p><div class="row"><button class="btn primary" id="aNew" type="button">Play again</button><button class="btn" id="aRep" type="button">Battle report</button>${ui.undo?'<button class="btn" id="aUndoT" type="button">Undo last turn</button>':''}</div>`;
+    $('aNew').onclick=restart;$('aRep').onclick=showReport;if($('aUndoT'))$('aUndoT').onclick=undoTurn;return;
+  }
+  if(g.turn!==me){a.innerHTML='<h2 class="h2">Computer is thinking…</h2><p class="muted">Its move will appear on the board.</p>';return}
+  const p=ui.pending;
+  if(p){
+    const pc=g.pieces.find(q=>q.id===p.id);const long=dist(p.from,p.to)>1;
+    let h=`<h2 class="h2">Attack?</h2><p>${T[pc.type].name} moved ${coord(p.from)} → ${coord(p.to)}. ${long?'A Searchlight raid must end in an attack.':'Tap a highlighted enemy, or move without attacking.'}</p>`;
+    p.targets.forEach(n=>{const e=pieceAt(g,n);h+=`<button class="btn attack" type="button" data-t="${n}">Attack ${e.revealed?T[e.type].name:'hidden piece'} at ${coord(n)}</button>`});
+    h+=`<div class="row">${long?'':'<button class="btn" id="aNo" type="button">Move without attacking</button>'}<button class="btn" id="aUndo" type="button">Undo move</button></div>`;
+    a.innerHTML=h;
+    a.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>commit(+b.dataset.t));
+    if($('aNo'))$('aNo').onclick=()=>commit(null);
+    $('aUndo').onclick=()=>{ui.pending=null;render()};
+    return;
+  }
+  if(sel){a.innerHTML=selBlock(sel)+`<p class="muted">Tap a dotted square to move one square forwards, backwards or sideways.</p><div class="row"><button class="btn" id="aCancel" type="button">Choose another piece</button></div>`;$('aCancel').onclick=()=>{ui.sel=null;render()};return}
+  a.innerHTML='<h2 class="h2">Your move</h2><p>Tap one of your cards to see where it can go. Moving next to an enemy lets you attack it, which reveals both cards. Tap a revealed computer card to see what it beats.</p><p class="muted">Win by moving infantry into the computer’s H.Q. (top), or by sailing a ship in at the river mouth and up into its Lake.</p>'+(ui.undo?'<div class="row"><button class="btn" id="aUndoT" type="button">Undo last turn</button></div>':'');
+  if($('aUndoT'))$('aUndoT').onclick=undoTurn;
+}
+function onBoard(e){
+  const b=e.target.closest('.cell');if(!b||ui.busy)return;
+  const n=+b.dataset.n,g=G,me='south',piece=pieceAt(g,n);
+  if(g.phase==='setup'){
+    if(piece&&piece.side!==me)return;
+    const inZone=ZONE.has(n);
+    if(ui.trayType){
+      if(!inZone)return;
+      if(piece){ui.trayType=null;ui.sel=piece.id;render();return}
+      const p=g.pieces.find(q=>q.side===me&&q.type===ui.trayType&&q.at===null);
+      if(p){p.at=n;sfx('place')}
+      if(!g.pieces.some(q=>q.side===me&&q.type===ui.trayType&&q.at===null))ui.trayType=null;
+      render();return;
+    }
+    const sel=ui.sel?g.pieces.find(q=>q.id===ui.sel):null;
+    if(!sel){if(piece){ui.sel=piece.id;render()}return}
+    if(piece&&piece.id===sel.id){ui.sel=null;render();return}
+    if(piece){const t=piece.at;piece.at=sel.at;sel.at=t}else if(inZone)sel.at=n;else return;
+    ui.sel=null;render();return;
+  }
+  if(g.phase!=='play'||g.turn!==me)return;
+  if(ui.pending){if(ui.pending.targets.includes(n))commit(n);return}
+  if(piece&&piece.side===me){ui.inspect=null;ui.sel=ui.sel===piece.id?null:piece.id;if(ui.sel)sfx('select');render();return}
+  if(piece&&piece.revealed&&!ui.sel){ui.inspect=ui.inspect===piece.id?null:piece.id;render();return}
+  const sel=ui.sel?g.pieces.find(q=>q.id===ui.sel):null;
+  if(sel&&legal(g,sel).includes(n)){
+    const targets=g.pieces.filter(q=>q.side!==me&&adjacent(q.at,n)).map(q=>q.at);
+    const long=dist(sel.at,n)>1;
+    ui.pending={id:sel.id,from:sel.at,to:n,targets};
+    ui.sel=null;
+    if(!targets.length&&!long){commit(null);return}
+    ui.anim={from:ui.pending.from,to:n};sfx('move');
+    render();
+  }
+}
+function commit(targetCell){
+  const p=ui.pending;ui.pending=null;
+  const target=targetCell!=null?pieceAt(G,targetCell):null;
+  ui.undo=JSON.stringify(G);
+  const ev=applyMove(G,'south',p.id,p.to,target?target.id:null);
+  if(p.targets.length)ev.noAnim=true;
+  afterMove(ev);
+}
+function undoTurn(){
+  if(!ui.undo||ui.busy)return;
+  G=JSON.parse(ui.undo);ui.undo=null;ui.sel=null;ui.pending=null;ui.inspect=null;
+  G.history.push({n:G.turnNumber,t:'You took back your last turn.'});
+  closeModal();sfx('undo');render();
+}
+function afterMove(ev){
+  if(!ev.noAnim)ui.anim={from:ev.from,to:ev.to};
+  if(!ev.combat)sfx('move');
+  render();
+  const next=()=>{if(G.phase==='over'){showOver();return}if(G.turn==='north'){ui.busy=true;render();setTimeout(cpuTurn,650)}};
+  if(ev.combat)showCombat(ev,next);else next();
+}
+function cpuTurn(){
+  const mv=computerMove(G);ui.busy=false;
+  if(!mv){G.phase='over';G.winner='south';G.history.push({n:G.turnNumber,t:'The computer has no legal moves left.'});render();showOver();return}
+  const ev=applyMove(G,'north',mv.id,mv.to,mv.target);
+  afterMove(ev);
+}
+function startBattle(){
+  if(G.pieces.some(q=>q.side==='south'&&q.at===null))return;
+  G.phase='play';ui.sel=null;ui.trayType=null;
+  G.turn=Math.random()<.5?'south':'north';
+  G.history.push({n:0,t:(G.turn==='south'?'You were':'The computer was')+' drawn to make the first move.'});
+  G.timeline=[];snapTimeline(G);G.events=[];G.deep={south:0,north:0};ui.undo=null;
+  render();
+  if(G.turn==='north'){ui.busy=true;render();setTimeout(cpuTurn,800)}
+}
+function restart(){G=newGame();ui={sel:null,pending:null,busy:false,modal:null,undo:null};closeModal();render()}
+function closeModal(){$('modal').innerHTML=''}
+function modal(html,onClose){
+  $('modal').innerHTML=`<div class="scrim" role="dialog" aria-modal="true">${html}</div>`;
+  const c=$('modal').querySelector('[data-close]');
+  if(c){c.onclick=()=>{closeModal();onClose&&onClose()};c.focus()}
+}
+function showCombat(ev,then){
+  const c=ev.combat,meAtt=c.att.side==='south';
+  const mine=meAtt?c.att:c.def,theirs=meAtt?c.def:c.att;
+  const mineLost=meAtt?c.ra:c.rd,theirLost=meAtt?c.rd:c.ra;
+  let head='Neither piece is removed';
+  if(mineLost&&theirLost)head='Both pieces removed';else if(theirLost)head='Your '+T[mine.type].name+' wins';else if(mineLost)head='Your '+T[mine.type].name+' is lost';
+  modal(`<div class="dlg"><div class="lbl" style="text-align:center">${meAtt?'YOU ATTACK':'THE COMPUTER ATTACKS'} AT ${coord(c.at)}</div>
+  <div class="vs"><div>${cardSVG(mine.type,'south',170)}<span>You: ${T[mine.type].name}</span></div><span class="v">VS</span><div>${cardSVG(theirs.type,'north',170)}<span>Computer: ${T[theirs.type].name}</span></div></div>
+  <div class="result">${head}</div><p class="muted" style="text-align:center">${c.r}</p>
+  <button class="btn primary" data-close type="button">Continue</button></div>`,then);
+  sfx('attack');sfx('reveal');
+}
+function showOver(){
+  const won=G.winner==='south';
+  modal(`<div class="dlg"><div class="result">${won?'Victory':'Defeat'}</div><p style="text-align:center">${G.history.slice(-1)[0].t}</p><div class="row" style="justify-content:center"><button class="btn primary" data-close type="button">See the board</button><button class="btn" id="oRep" type="button">Battle report</button></div></div>`);
+  $('oRep').onclick=showReport;
+  sfx(won?'win':'lose');
+}
+// ---------- Battle report ----------
+function report(g){
+  const ev=g.events||[],tl=g.timeline||[];
+  const mine=ev.filter(e=>!e.base&&e.side==='south'),theirs=ev.filter(e=>!e.base&&e.side==='north');
+  const res=e=>e.rd&&!e.ra?'win':e.ra&&!e.rd?'loss':e.ra&&e.rd?'both':'none';
+  const count=(a,k)=>a.filter(e=>res(e)===k).length;
+  const pct=(a,b)=>b?Math.round(100*a/b):0;
+  const blind=mine.filter(e=>e.blind),blindLoss=count(blind,'loss')+count(blind,'both');
+  // Kills by type: a card "kills" when the other card is removed and it survives or trades
+  const kills={south:{},north:{}};
+  for(const e of ev){if(e.base)continue;const attKill=e.rd,defKill=e.ra;const defSide=other(e.side);
+    if(attKill)kills[e.side][e.att]=(kills[e.side][e.att]||0)+1;
+    if(defKill)kills[defSide][e.def]=(kills[defSide][e.def]||0)+1;}
+  const top=k=>Object.entries(k).sort((a,b)=>b[1]-a[1])[0];
+  const lossCause={element:0,coast:0,river:0,base:0};
+  for(const e of ev){
+    if(e.base){if(e.side==='south')lossCause.base++;continue}
+    const iLost=(e.side==='south'&&e.ra)||(e.side==='north'&&e.rd);
+    if(iLost&&lossCause[e.cause]!==undefined)lossCause[e.cause]++;
+  }
+  const shipLost=s=>Object.entries(g.lost[s]).filter(([t])=>isShip(t)).reduce((a,[,n])=>a+n,0);
+  const airLost=s=>Object.entries(g.lost[s]).filter(([t])=>/^A[1-3]$/.test(t)||t==='FB').reduce((a,[,n])=>a+n,0);
+  // Turning point: the single turn with the biggest swing in material balance
+  let pivot=null;
+  for(let i=1;i<tl.length;i++){const d=(tl[i].s-tl[i].c)-(tl[i-1].s-tl[i-1].c);if(!pivot||Math.abs(d)>Math.abs(pivot.d))pivot={n:tl[i].n,d}}
+  if(pivot&&Math.abs(pivot.d)<0.5)pivot=null;
+  const pivotText=pivot?(g.history.find(h=>h.n===pivot.n)||{}).t:'';
+  let lastFlip=null;for(let i=1;i<tl.length;i++){const a=Math.sign(tl[i-1].s-tl[i-1].c),b=Math.sign(tl[i].s-tl[i].c);if(b&&a!==b)lastFlip=tl[i].n}
+  const good=[],bad=[],obs=[];
+  if(mine.length>=3&&pct(count(mine,'win'),mine.length)>=55)good.push(`Your attacks won ${pct(count(mine,'win'),mine.length)}% of the time.`);
+  if(mine.length>=3&&pct(count(mine,'loss'),mine.length)>=45)bad.push(`${pct(count(mine,'loss'),mine.length)}% of your attacks lost the attacking card.`);
+  if(blindLoss>=2)bad.push(`Attacks on face-down cards cost you ${blindLoss} card${blindLoss>1?'s':''}. Probe with Battalions or Searchlights before committing strong cards.`);
+  else if(blind.length>=3)good.push(`Your attacks on face-down cards paid off: ${count(blind,'win')} of ${blind.length} won.`);
+  if(lossCause.element)bad.push(`${lossCause.element} of your cards were caught out of their element and forfeited.`);
+  if(lossCause.coast)bad.push(`${lossCause.coast} of your cards were lost to coastline rules.`);
+  if(lossCause.base)bad.push(`${lossCause.base} card${lossCause.base>1?'s were':' was'} forfeited for staying on a base.`);
+  const sS=shipLost('south'),sC=shipLost('north');
+  if(sS+sC>=2)(sC>sS?good:bad).push(sC>sS?`You won the sea battle: ${sC} computer ships sunk for ${sS} of yours.`:`The computer controlled the sea: you lost ${sS} ships and sank ${sC}.`);
+  const aS=airLost('south'),aC=airLost('north');
+  if(aS+aC>=2)(aC>aS?good:bad).push(aC>aS?`You won in the air: ${aC} computer aircraft down for ${aS} of yours.`:`You lost the air war: ${aS} aircraft down against ${aC}.`);
+  const deep=(g.deep||{}).south||0;
+  if(deep>=8)good.push(`Your infantry pushed ${deep} rows forward, deep into enemy territory.`);
+  else if(tl.length>40&&deep<5)bad.push(`Your infantry never got more than ${deep} rows forward. The H.Q. can only be taken by infantry.`);
+  const tk=top(kills.south);if(tk&&tk[1]>=2)good.push(`Your best performer was the ${T[tk[0]].name}, with ${tk[1]} kills.`);
+  const ck=top(kills.north);if(ck&&ck[1]>=2)obs.push(`Its most dangerous card was the ${T[ck[0]].name}, which removed ${ck[1]} of your cards.`);
+  if(theirs.length){
+    obs.push(`It attacked ${theirs.length} time${theirs.length>1?'s':''} and won ${count(theirs,'win')}.`);
+    const tb=theirs.filter(e=>e.blind).length;if(tb)obs.push(`${tb} of its attacks were on your face-down cards, so it was willing to gamble.`);
+    const sea=theirs.filter(e=>e.sea).length;obs.push(sea>theirs.length/2?'It fought mostly at sea.':'It fought mostly on land.');
+  }
+  if((g.deep||{}).north>=7)obs.push(`Its infantry advanced ${(g.deep||{}).north} rows towards your H.Q.`);
+  if(g.phase==='over'&&g.winner==='north')obs.push(g.history.slice(-1)[0].t);
+  if(!good.length)good.push('Play a few more turns and your strengths will show here.');
+  if(!bad.length)bad.push('No clear weaknesses so far.');
+  return {mine,theirs,count,pct,blind,pivot,pivotText,lastFlip,good,bad,obs,tl};
+}
+function chartSVG(tl,pivot){
+  if(tl.length<2)return '<p class="muted">The chart appears once a few turns have been played.</p>';
+  const W=600,H=180,P=28,adv=tl.map(t=>t.s-t.c),m=Math.max(4,...adv.map(Math.abs));
+  const x=i=>P+(W-2*P)*i/(tl.length-1),y=v=>H/2-(H/2-16)*v/m;
+  const pts=adv.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const pi=pivot?tl.findIndex(t=>t.n===pivot.n):-1;
+  const css=getComputedStyle(document.documentElement);
+  const fg=css.getPropertyValue('--fg').trim()||'#1E241D',mu=css.getPropertyValue('--muted').trim()||'#4D5648',ac=css.getPropertyValue('--accent').trim()||'#A8461A';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Material advantage over the game">
+  <rect x="${P}" y="8" width="${W-2*P}" height="${H/2-8}" fill="#2E9B3A" opacity=".08"/><rect x="${P}" y="${H/2}" width="${W-2*P}" height="${H/2-8}" fill="${ac}" opacity=".08"/>
+  <line x1="${P}" y1="${H/2}" x2="${W-P}" y2="${H/2}" stroke="${mu}" stroke-dasharray="3 4"/>
+  <text x="${P+4}" y="22" font-size="12" fill="${mu}">You ahead</text><text x="${P+4}" y="${H-14}" font-size="12" fill="${mu}">Computer ahead</text>
+  <polyline points="${pts}" fill="none" stroke="${fg}" stroke-width="2.2" stroke-linejoin="round"/>
+  ${pi>=0?`<circle cx="${x(pi)}" cy="${y(adv[pi])}" r="6" fill="${ac}"/><text x="${Math.min(x(pi)+8,W-90)}" y="${Math.max(y(adv[pi])-10,14)}" font-size="12" font-weight="600" fill="${ac}">Turning point</text>`:''}
+  <text x="${P}" y="${H-1}" font-size="11" fill="${mu}">Turn ${tl[0].n}</text><text x="${W-P}" y="${H-1}" font-size="11" fill="${mu}" text-anchor="end">Turn ${tl[tl.length-1].n}</text></svg>`;
+}
+function showReport(){
+  const r=report(G),m=r.mine;
+  const stat=(v,k)=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;
+  modal(`<div class="dlg wide"><div class="h2">Battle report</div>
+  <p class="muted">${G.phase==='over'?(G.winner==='south'?'You won.':'The computer won.'):'Game in progress.'} Turn ${G.turnNumber} · Computer strength: ${(G.level||'normal').replace(/^./,c=>c.toUpperCase())}</p>
+  <div class="stats">${stat(m.length,'Attacks you made')}${stat(r.pct(r.count(m,'win'),m.length)+'%','Of your attacks won')}${stat(Object.values(G.lost.north).reduce((a,b)=>a+b,0),'Computer cards taken')}${stat(Object.values(G.lost.south).reduce((a,b)=>a+b,0),'Your cards lost')}${stat(r.blind.length,'Attacks on face-down cards')}${stat(r.theirs.length,'Attacks the computer made')}</div>
+  <div class="lbl">MATERIAL BALANCE</div><div class="chart">${chartSVG(r.tl,r.pivot)}</div>
+  ${r.pivot?`<p><b>Turning point, turn ${r.pivot.n}:</b> ${r.pivotText||''} ${r.pivot.d>0?'This swung the game your way.':'This swung the game towards the computer.'}${r.lastFlip?` The lead last changed hands on turn ${r.lastFlip}.`:''}</p>`:''}
+  <div class="guide">
+   <div class="card"><div class="lbl">YOUR STRENGTHS</div><ul class="points">${r.good.map(t=>`<li class="good">${t}</li>`).join('')}</ul></div>
+   <div class="card"><div class="lbl">YOUR WEAKNESSES</div><ul class="points">${r.bad.map(t=>`<li class="bad">${t}</li>`).join('')}</ul></div>
+   <div class="card"><div class="lbl">HOW THE COMPUTER PLAYED</div><ul class="points">${(r.obs.length?r.obs:['Nothing to report yet.']).map(t=>`<li>${t}</li>`).join('')}</ul></div>
+  </div>
+  <p class="muted" style="font-size:13px">Material counts each card by its strength, so losing an Aircraft Carrier costs more than losing a Battalion.</p>
+  <div class="row"><button class="btn primary" data-close type="button">Close</button></div></div>`);
+}
+function showRules(){
+  const ids=UNITS.map(u=>u.id);
+  const sym={X:'X',C:'§','*':'*',P:'¶',D:'†'};
+  let t='<table class="ct"><thead><tr><th>Attacker ↓ / Attacked →</th>'+ids.map(i=>`<th>${i}</th>`).join('')+'</tr></thead><tbody>';
+  for(const a of ids){t+=`<tr><th style="text-align:left">${T[a].name}</th>`;for(const d of ids){const r=M[a][d]||'';t+=`<td class="${sym[r]?'s':''}">${sym[r]||r}</td>`}t+='</tr>'}
+  t+='</tbody></table>';
+  modal(`<div class="dlg wide"><div class="h2">Field guide</div><div class="rules">
+  <p>Each side has 56 cards: 15 infantry, 9 artillery, 11 ships, 4 Flying Boats, 9 aircraft and 8 Searchlights. Only you see your own cards; the enemy’s stay face down until a fight reveals them.</p>
+  <h3>Moving and attacking</h3><p>Move one card one square forwards, backwards or sideways onto an empty square, never diagonally. After moving you may attack one enemy card next to it. Both cards are revealed and the loser is removed; the winner stays where it is. Searchlights may move any distance in a straight line, but only to attack.</p>
+  <h3>Winning</h3><p>Move infantry (1–5) into the enemy H.Q., or bring a ship (Submarine included, Flying Boat not) in at the river mouth from the sea, up the river and into the enemy Lake.</p>
+  <h3>Out of its element</h3><p>Land forces caught at sea by ships, aircraft or Searchlights are forfeit, and ships caught on land by land forces, aircraft or Searchlights are forfeit. A ship and a land force attacking each other across the coastline: the attacker is forfeit, except that Heavy Artillery sinks ships and ships destroy Anti-Aircraft guns. Bombers and Flying Boats destroy infantry and Field Artillery across the coastline.</p>
+  <h3>Bases</h3><p>You may cross an H.Q. or Lake, but must move off it on your next turn or the card is forfeit.</p>
+  <h3>Value table</h3><p class="muted">Each square shows the winner. X both removed · blank nothing happens · § Bomber or Flying Boat wins across the coastline, otherwise nothing happens · * Flying Boat wins at sea, aircraft win over land · ¶ Heavy Artillery sinks the ship on a river or across the coastline · † ship destroys the gun on a river or across the coastline.</p>
+  </div><div class="tablewrap">${t}</div>
+  <div class="h2" style="margin-top:8px">Card by card</div>
+  <div class="guide">${UNITS.map(u=>`<div class="card"><div class="sel">${cardSVG(u.id,'south',120)}<div><div class="h2" style="font-size:22px">${u.name}</div><div class="muted">${u.count} per side</div></div></div>${intel(u.id)}</div>`).join('')}</div>
+  <div class="row"><button class="btn primary" data-close type="button">Close</button></div></div>`);
+}
+// ---------- Boot ----------
+function boot(){
+  $('files').innerHTML='ABCDEFGHIJKL'.split('').map(l=>`<span>${l}</span>`).join('');
+  $('ranks').innerHTML=Array.from({length:12},(_,i)=>`<span>${12-i}</span>`).join('');
+  $('board').addEventListener('click',onBoard);
+  $('tray').addEventListener('click',onTray);
+  $('btnRules').onclick=showRules;
+  $('btnReport').onclick=showReport;
+  setSound(soundOn);
+  $('btnSound').onclick=()=>{setSound(!soundOn);if(soundOn)sfx('select')};
+  $('seg').addEventListener('click',e=>{const b=e.target.closest('[data-level]');if(!b)return;G.level=b.dataset.level;render()});
+  $('btnNew').onclick=()=>{modal(`<div class="dlg"><div class="h2">Start a new game?</div><p>This game will be lost.</p><div class="row"><button class="btn primary" id="yesNew" type="button">Start a new game</button><button class="btn" data-close type="button">Keep playing</button></div></div>`);$('yesNew').onclick=restart};
+  G=load()||newGame();
+  G.level=G.level||'normal';G.events=G.events||[];G.timeline=G.timeline||[];G.deep=G.deep||{south:0,north:0};
+  render();
+  if(G.phase==='play'&&G.turn==='north'){ui.busy=true;render();setTimeout(cpuTurn,800)}
+}
+boot();
+})();
+</script>
+
+</body>
+</html>
